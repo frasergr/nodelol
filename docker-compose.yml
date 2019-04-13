@@ -1,0 +1,59 @@
+version: '3'
+
+services:
+  watchtower:
+    container_name: watchtower
+    image: containrrr/watchtower
+    command: --cleanup --label-enable
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./etc/watchtower/config.json:/config.json:ro
+  
+  traefik:
+    container_name: traefik
+    image: traefik
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./etc/traefik/traefik.toml:/traefik.toml
+      - ./etc/acme/acme.json:/acme.json
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=traefik"
+      - "traefik.docker.network=web"
+      - "traefik.frontend.rule=Host:traefik.${DOMAIN}"
+      - "traefik.port=8080"
+      - "com.centurylinklabs.watchtower.enable=true"
+    networks:
+      - web
+    environment:
+      - CLOUDFLARE_API_KEY=${CLOUDFLARE_API_KEY}
+      - CLOUDFLARE_EMAIL=${CLOUDFLARE_EMAIL}
+
+  portainer:
+    container_name: portainer
+    image: portainer/portainer
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data/portainer:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=portainer"
+      - "traefik.docker.network=web"
+      - "traefik.frontend.rule=Host:portainer.${DOMAIN}"
+      - "traefik.port=9000"
+      - "com.centurylinklabs.watchtower.enable=true"
+    networks:
+      - web
+    depends_on:
+      - traefik
+
+networks:
+  web:
+    external: true
+
